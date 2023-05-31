@@ -1,5 +1,4 @@
 ﻿using SixLabors.Fonts;
-using System.IO;
 using System.Numerics;
 using System.Threading;
 using TextRender;
@@ -19,6 +18,7 @@ namespace GettingStarted
         private static Text text;
         private static Text text2;
         private static TextShader textShader;
+        static Sdl2Window window;
 
         static void Main(string[] args)
         {
@@ -30,12 +30,16 @@ namespace GettingStarted
                 WindowHeight = 540,
                 WindowTitle = "Veldrid Tutorial"
             };
-            Sdl2Window window = VeldridStartup.CreateWindow(ref windowCI);
+            window = VeldridStartup.CreateWindow(ref windowCI);
 
-            _graphicsDevice = VeldridStartup.CreateGraphicsDevice(window, new GraphicsDeviceOptions()
-            {
-                SwapchainDepthFormat = PixelFormat.R16_UNorm
-            });
+            _graphicsDevice = VeldridStartup.CreateGraphicsDevice(
+                window,
+                new GraphicsDeviceOptions()
+                {
+                    SwapchainDepthFormat = PixelFormat.R16_UNorm
+                },
+                GraphicsBackend.Vulkan
+                );
 
             textRenderer = new TextRender.TextRenderer(_graphicsDevice);
             text = new Text(textRenderer, "Hello world!")
@@ -57,6 +61,8 @@ namespace GettingStarted
             text2.Initialize();
 
             CreateResources();
+
+            window.Resized += Resize;
 
             while (window.Exists)
             {
@@ -93,9 +99,18 @@ namespace GettingStarted
                 scissorTestEnabled: false);
             pipelineDescription.PrimitiveTopology = PrimitiveTopology.TriangleStrip;
             pipelineDescription.ResourceLayouts = System.Array.Empty<ResourceLayout>();
-            pipelineDescription.ShaderSet = new ShaderSetDescription(
-                vertexLayouts: new VertexLayoutDescription[] { textShader.Layout },
-                shaders: new Shader[] { textShader.VertexShader, textShader.FragmentShader });
+            pipelineDescription.ShaderSet = new ShaderSetDescription
+            (
+                vertexLayouts: new[]
+                {
+                    textShader.Layout
+                },
+                shaders: new[]
+                {
+                    textShader.VertexShader,
+                    textShader.FragmentShader
+                }
+            );
             pipelineDescription.Outputs = _graphicsDevice.SwapchainFramebuffer.OutputDescription;
 
             _pipeline = factory.CreateGraphicsPipeline(pipelineDescription);
@@ -126,6 +141,14 @@ namespace GettingStarted
             
             // Once commands have been submitted, the rendered image can be presented to the application window.
             _graphicsDevice.SwapBuffers();
+        }
+
+        static void Resize()
+        {
+
+            _graphicsDevice.MainSwapchain.Resize((uint)window.Width, (uint)window.Height);  
+            text.Recreate();
+            text2.Recreate();
         }
 
         private static void DisposeResources()
